@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Damas Futuras</title>
+    <!-- Link to the Orbitron font for a futuristic style -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Main CSS for the game -->
+    <style>
+        :root {
+            --bg-color: #0d0d1a;
+            --primary-glow: #00ffc0;
+            --secondary-glow: #ff0099;
+            --board-border: #1a1a33;
+            --board-dark: #1f1f40;
+            --board-light: #2c2c59;
+            --white-piece: var(--primary-glow);
+            --black-piece: var(--secondary-glow);
+            --king-white: #00ffff;
+            --king-black: #ff33cc;
+            --hover-color: rgba(255, 255, 255, 0.1);
+            --selected-border: var(--primary-glow);
+        }
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-glow);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            /* CAMBIOS AQUI: min-height en lugar de height para permitir el scroll y overflow: auto en lugar de hidden */
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow-y: auto; /* Permite el desplazamiento vertical si el contenido excede la altura */
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-shadow: 0 0 10px var(--primary-glow), 0 0 20px var(--primary-glow);
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 10px 0;
+            border-bottom: 2px solid var(--board-border);
+        }
+
+        .game-info p {
+            font-size: 1.2em;
+            margin: 0;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            width: clamp(250px, 80vw, 600px);
+            height: clamp(250px, 80vw, 600px);
+            border: 4px solid var(--board-border);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            margin-bottom: 20px;
+        }
+
+        .square {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .square.dark {
+            background-color: var(--board-dark);
+        }
+
+        .square.light {
+            background-color: var(--board-light);
+        }
+
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        
+        .piece.moving-piece {
+            z-index: 10;
+        }
+
+        .piece.white {
+            background-color: var(--primary-glow);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .piece.black {
+            background-color: var(--secondary-glow);
+            box-shadow: 0 0 15px var(--secondary-glow);
+        }
+
+        .piece.king::after {
+            content: '♚';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+            text-shadow: 0 0 10px white;
+        }
+
+        .piece.white.king::after {
+            color: var(--king-white);
+            text-shadow: 0 0 5px var(--king-white), 0 0 10px var(--king-white);
+        }
+
+        .piece.black.king::after {
+            content: '♚';
+            color: var(--king-black);
+            text-shadow: 0 0 5px var(--king-black), 0 0 10px var(--king-black);
+        }
+
+        .piece.selected {
+            transform: scale(1.1);
+            border: 2px solid var(--selected-border);
+            box-shadow: 0 0 20px var(--selected-border), 0 0 40px var(--selected-border);
+            animation: glow-pulse 1s infinite alternate;
+        }
+
+        .square.possible-move {
+            background-color: rgba(0, 255, 255, 0.3);
+            cursor: pointer;
+            box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.8);
+            animation: highlight-pulse 1s infinite alternate;
+        }
+
+        .square.possible-move:hover {
+            background-color: rgba(0, 255, 255, 0.5);
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        button {
+            background-color: transparent;
+            border: 2px solid var(--primary-glow);
+            color: var(--primary-glow);
+            font-family: 'Orbitron', sans-serif;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 5px var(--primary-glow);
+        }
+
+        button:hover {
+            background-color: var(--primary-glow);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            box-shadow: none;
+        }
+
+        #winner-message {
+            margin-top: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            text-shadow: 0 0 10px var(--secondary-glow);
+            display: none;
+        }
+
+        .chat-section {
+            width: 100%;
+            max-width: 600px;
+            height: 200px;
+            border: 2px solid var(--board-border);
+            background-color: var(--board-dark);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+        }
+
+        #chat-output {
+            flex-grow: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 2px solid var(--board-border);
+            font-size: 0.9em;
+            text-align: left;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 10px;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            background-color: transparent;
+            border: 1px solid var(--primary-glow);
+            color: var(--primary-glow);
+            font-family: 'Orbitron', sans-serif;
+            padding: 5px;
+            outline: none;
+        }
+
+        #send-chat-btn {
+            margin-left: 10px;
+        }
+
+        .ai {
+            color: var(--secondary-glow);
+        }
+        
+        #ai-suggestion-box {
+            background-color: var(--board-dark);
+            border: 2px solid var(--secondary-glow);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px var(--secondary-glow);
+            text-align: left;
+            font-size: 0.9em;
+            line-height: 1.5;
+            min-height: 50px;
+            display: none; /* Se oculta por defecto */
+        }
+        
+        .user {
+            color: var(--primary-glow);
+        }
+
+        /* Estilos para el tutorial y la caja de mensajes */
+        #tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        #tutorial-overlay.hidden {
+            display: none;
+        }
+
+        .tutorial-box {
+            background-color: #1a1a33;
+            border: 2px solid var(--primary-glow);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px var(--primary-glow);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .tutorial-box h2 {
+            font-size: 2em;
+            color: var(--primary-glow);
+        }
+
+        .tutorial-box p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: white;
+        }
+
+        #start-game-btn {
+            margin-top: 20px;
+        }
+        
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--board-dark);
+            border: 2px solid var(--primary-glow);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px var(--primary-glow);
+            z-index: 200;
+            display: none;
+            color: var(--primary-glow);
+            text-align: center;
+        }
+        
+        /* Modal para el reinicio central */
+        #win-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* Oculto por defecto */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: #1a1a33;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px var(--primary-glow);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .modal-content h2 {
+            font-size: 2em;
+            color: var(--primary-glow);
+        }
+
+        .modal-content p {
+            font-size: 1em;
+            margin-bottom: 20px;
+        }
+
+        #reset-center-btn {
+            margin-top: 20px;
+        }
+
+
+        #message-box h3 {
+            margin-top: 0;
+            text-shadow: 0 0 5px var(--primary-glow);
+        }
+
+        #message-box button {
+            margin-top: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse-glow {
+            from { text-shadow: 0 0 10px var(--primary-glow), 0 0 20px var(--primary-glow); }
+            to { text-shadow: 0 0 15px var(--primary-glow), 0 0 30px var(--primary-glow); }
+        }
+        @keyframes glow-pulse {
+            from { box-shadow: 0 0 20px var(--selected-border), 0 0 40px var(--selected-border); }
+            to { box-shadow: 0 0 30px var(--selected-border), 0 0 60px var(--selected-border); }
+        }
+        @keyframes highlight-pulse {
+            from { box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.8); }
+            to { box-shadow: inset 0 0 15px rgba(0, 255, 255, 1); }
+        }
+
+        /* Media queries for responsive design on mobile */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8em; letter-spacing: 3px; }
+            .game-info p { font-size: 1em; }
+            .chat-section { height: 150px; }
+            .game-container { padding: 10px; }
+            .button-group { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Tutorial/Start Screen -->
+    <div id="tutorial-overlay">
+        <div class="tutorial-box">
+            <h2>Bienvenido a Damas Futuras</h2>
+            <p>
+                En esta versión, las reglas son las mismas que en las damas clásicas. Tu objetivo es capturar todas las fichas del oponente. Las capturas son obligatorias y las damas se mueven en todas las diagonales. ¡Buena suerte!
+            </p>
+            <button id="start-game-btn">Empezar el Juego</button>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <div class="game-container">
+        <h1>Damas Futuras</h1>
+        <!-- Game Info Section (turn, messages) -->
+        <div class="game-info">
+            <p>Turno: <span id="current-turn">Blancas</span></p>
+            <p id="winner-message" style="display:none;"></p>
+        </div>
+        <!-- The checkers board -->
+        <div id="board"></div>
+        <!-- Game Controls and Buttons -->
+        <div class="controls">
+            <div class="button-group">
+                <button id="reset-game-btn">Reiniciar</button>
+                <button id="suggest-move-btn">Obtener Sugerencia de la IA</button>
+            </div>
+            <!-- Box to display AI's suggestion -->
+            <div id="ai-suggestion-box"></div>
+        </div>
+        
+        <!-- Chat section for interaction with the AI -->
+        <div class="chat-section">
+            <div id="chat-output"></div>
+            <div class="chat-input">
+                <input type="text" id="chat-input" placeholder="Pregunta sobre el juego...">
+                <button id="send-chat-btn">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom message box (replaces 'alert') -->
+    <div id="message-box">
+        <p id="message-text"></p>
+        <button onclick="hideMessage()">OK</button>
+    </div>
+    
+    <!-- Modal for winning and resetting -->
+    <div id="win-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="win-modal-message"></h2>
+            <p>¡Las fichas se reiniciarán en el centro del tablero para una nueva partida!</p>
+            <button id="reset-center-btn">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <!-- JavaScript for game logic and AI -->
+    <script>
+// script.js
+
+// --- GLOBAL GAME VARIABLES ---
+// The board state is represented as a 2D array. 0 = empty, 1 = white piece, 2 = black piece, 3 = white king, 4 = black king
+let boardState = [];
+let selectedPiece = null;
+let turn = 'white'; // 'white' or 'black'
+let possibleMoves = [];
+let isGameOver = false;
+let isGameStarted = false; // Tutorial state
+let isAnimating = false; // Flag to prevent clicks during animation
+const MOVE_ANIMATION_DURATION = 300; // Animation duration in milliseconds
+
+// --- DOM ELEMENTS ---
+const boardEl = document.getElementById('board');
+const gameStatusEl = document.getElementById('current-turn');
+const winnerMessageEl = document.getElementById('winner-message');
+const resetButton = document.getElementById('reset-game-btn');
+const suggestButton = document.getElementById('suggest-move-btn');
+const aiSuggestionBox = document.getElementById('ai-suggestion-box');
+const chatOutputEl = document.getElementById('chat-output');
+const chatInputEl = document.getElementById('chat-input');
+const chatButton = document.getElementById('send-chat-btn');
+const tutorialOverlay = document.getElementById('tutorial-overlay');
+const startGameButton = document.getElementById('start-game-btn');
+const messageBoxEl = document.getElementById('message-box');
+const messageTextEl = document.getElementById('message-text');
+const winModal = document.getElementById('win-modal');
+const winModalMessage = document.getElementById('win-modal-message');
+const resetCenterButton = document.getElementById('reset-center-btn');
+
+
+// API URL for AI chat. We use the gemini-2.5-flash-preview-05-20 model.
+const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent";
+const API_KEY = ""; // The API key will be provided at runtime.
+
+// --- MAIN GAME FUNCTIONS ---
+
+/**
+ * Displays a message in a custom dialog box.
+ * @param {string} message The message to display.
+ */
+function showMessage(message) {
+    if (messageTextEl) messageTextEl.textContent = message;
+    if (messageBoxEl) messageBoxEl.style.display = 'block';
+}
+
+/**
+ * Hides the message dialog box.
+ */
+function hideMessage() {
+    if (messageBoxEl) messageBoxEl.style.display = 'none';
+}
+
+/**
+ * Initializes the game board, both the HTML structure and the logical state.
+ */
+function createBoard() {
+    boardEl.innerHTML = '';
+    boardState = [];
+    selectedPiece = null;
+    possibleMoves = [];
+    isGameOver = false;
+    isAnimating = false;
+    turn = 'white';
+    gameStatusEl.textContent = 'Blancas';
+    if (winnerMessageEl) winnerMessageEl.style.display = 'none';
+    hideMessage();
+    aiSuggestionBox.style.display = 'none';
+
+    // Initialize the board state array
+    for (let i = 0; i < 8; i++) {
+        boardState[i] = [];
+        for (let j = 0; j < 8; j++) {
+            boardState[i][j] = 0;
+        }
+    }
+
+    // Place the initial pieces
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 8; j++) {
+            if ((i + j) % 2 !== 0) {
+                boardState[i][j] = 2; // Black pieces
+            }
+        }
+    }
+
+    for (let i = 5; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            if ((i + j) % 2 !== 0) {
+                boardState[i][j] = 1; // White pieces
+            }
+        }
+    }
+    
+    // Render the board
+    renderBoard();
+    checkForWin();
+}
+
+/**
+ * Updates the DOM of the board to reflect the current game state.
+ */
+function renderBoard() {
+    boardEl.innerHTML = ''; // Clear existing board
+    for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            const square = document.createElement('div');
+            square.classList.add('square');
+            square.dataset.row = i;
+            square.dataset.col = j;
+            square.classList.add((i + j) % 2 === 0 ? 'light' : 'dark');
+
+            // Create and add the pieces
+            const pieceType = boardState[i][j];
+            if (pieceType !== 0) {
+                const piece = document.createElement('div');
+                piece.classList.add('piece');
+                if (pieceType === 1 || pieceType === 3) {
+                    piece.classList.add('white');
+                } else {
+                    piece.classList.add('black');
+                }
+                if (pieceType > 2) {
+                    piece.classList.add('king');
+                }
+                square.appendChild(piece);
+            }
+            boardEl.appendChild(square);
+        }
+    }
+
+    // Highlight the selected piece and possible moves
+    if (selectedPiece) {
+        const { row, col } = selectedPiece;
+        const square = document.querySelector(`.square[data-row="${row}"][data-col="${col}"]`);
+        if (square && square.firstChild) {
+            square.firstChild.classList.add('selected');
+        }
+        possibleMoves.forEach(move => {
+            const square = document.querySelector(`.square[data-row="${move.row}"][data-col="${move.col}"]`);
+            if (square) {
+                square.classList.add('possible-move');
+            }
+        });
+    }
+}
+
+/**
+ * Handles clicks on the board, either to select a piece or to move it.
+ * @param {Event} event The click event.
+ */
+async function handleBoardClick(event) {
+    if (isAnimating || isGameOver || !isGameStarted) return; 
+
+    const squareEl = event.target.closest('.square');
+    if (!squareEl) return;
+
+    const row = parseInt(squareEl.dataset.row);
+    const col = parseInt(squareEl.dataset.col);
+    const pieceType = boardState[row][col];
+    const pieceColor = (pieceType === 1 || pieceType === 3) ? 'white' : 'black';
+
+    // A piece is already selected, check if this is a valid move
+    if (selectedPiece) {
+        const move = possibleMoves.find(m => m.row === row && m.col === col);
+        if (move) {
+            await movePiece(selectedPiece.row, selectedPiece.col, row, col, move.captured);
+        } else {
+            // Invalid move, check if the user wants to select a different piece
+            const isPiece = pieceType !== 0;
+            if (isPiece && pieceColor === turn) {
+                selectedPiece = null;
+                selectPiece(row, col);
+            } else {
+                // Otherwise, clear the selection
+                selectedPiece = null;
+                possibleMoves = [];
+                renderBoard();
+            }
+        }
+    } else {
+        const isPiece = pieceType !== 0;
+        if (isPiece && pieceColor === turn) {
+            // No piece selected, check for mandatory captures.
+            const allCaptures = getAllPossibleMoves(boardState, turn).filter(m => m.captured);
+
+            if (allCaptures.length > 0) {
+                const capturesForThisPiece = getPossibleMoves(row, col, boardState).filter(m => m.captured);
+                if (capturesForThisPiece.length > 0) {
+                    // This piece can make a capture, so it's a valid selection
+                    selectPiece(row, col);
+                } else {
+                    // This piece cannot make a capture, but a capture is available elsewhere.
+                    showMessage("¡Captura obligatoria! Debes seleccionar una ficha que pueda realizar una captura.");
+                }
+            } else {
+                // No captures available, so any valid piece selection is okay.
+                selectPiece(row, col);
+            }
+        }
+    }
+}
+
+/**
+ * Selects a piece and determines its possible moves.
+ * @param {number} row The piece's row.
+ * @param {number} col The piece's column.
+ */
+function selectPiece(row, col) {
+    selectedPiece = { row, col };
+    let moves = getPossibleMoves(row, col, boardState);
+    const captures = moves.filter(move => move.captured);
+    if (captures.length > 0) {
+        possibleMoves = captures; 
+        showMessage('¡Tienes que capturar!');
+    } else {
+        possibleMoves = moves;
+    }
+    renderBoard();
+}
+
+/**
+ * Calculates all valid moves (including jumps) for a piece.
+ * **CAMBIO IMPORTANTE AQUÍ: Lógica para Reinas de largo alcance**
+ * @param {number} row The piece's row.
+ * @param {number} col The piece's column.
+ * @param {Array<Array<number>>} board The board state to calculate moves for.
+ * @returns {Array<Object>} An array of objects with the coordinates of possible moves and the captured piece (if applicable).
+ */
+function getPossibleMoves(row, col, board) {
+    const moves = [];
+    const pieceType = board[row][col];
+    if (pieceType === 0) return moves; // Si no hay pieza, no hay movimientos
+
+    const isKing = pieceType > 2;
+    const isWhite = pieceType === 1 || pieceType === 3;
+    const opponentTypes = isWhite ? [2, 4] : [1, 3];
+
+    // Define directions based on piece type
+    let directions = [];
+    if (isKing) {
+        // Kings can move in all four diagonal directions
+        directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+    } else {
+        // Regular pieces can only move forward
+        directions = isWhite ? [[-1, -1], [-1, 1]] : [[1, -1], [1, 1]];
+    }
+
+    // 1. Check for captures first, as they are mandatory
+    for (const [dRow, dCol] of directions) {
+        let currentRow = row + dRow;
+        let currentCol = col + dCol;
+        
+        if (isKing) {
+            let capturedPiecePos = null;
+            while (currentRow >= 0 && currentRow < 8 && currentCol >= 0 && currentCol < 8) {
+                const jumpedPieceType = board[currentRow][currentCol];
+                if (jumpedPieceType !== 0) {
+                    if (opponentTypes.includes(jumpedPieceType) && !capturedPiecePos) {
+                        capturedPiecePos = { row: currentRow, col: currentCol };
+                    } else {
+                        // Blocked by a friendly piece or a second enemy piece
+                        break;
+                    }
+                } else if (capturedPiecePos) {
+                    // Found an empty square after a captured piece
+                    moves.push({ row: currentRow, col: currentCol, captured: capturedPiecePos });
+                }
+                currentRow += dRow;
+                currentCol += dCol;
+            }
+        } else { // Regular piece
+            const jumpRow = row + 2 * dRow;
+            const jumpCol = col + 2 * dCol;
+
+            if (jumpRow >= 0 && jumpRow < 8 && jumpCol >= 0 && jumpCol < 8) {
+                const midRow = row + dRow;
+                const midCol = col + dCol;
+                const jumpedPieceType = board[midRow][midCol];
+                
+                if (jumpedPieceType !== 0 && opponentTypes.includes(jumpedPieceType) && board[jumpRow][jumpCol] === 0) {
+                    moves.push({ row: jumpRow, col: jumpCol, captured: { row: midRow, col: midCol } });
+                }
+            }
+        }
+    }
+    
+    const allCaptures = moves.filter(m => m.captured);
+
+    // 2. If no captures are found, check for regular moves
+    if (allCaptures.length === 0) {
+        for (const [dRow, dCol] of directions) {
+            let currentRow = row + dRow;
+            let currentCol = col + dCol;
+
+            // Check if the target square is within bounds and empty
+            if (currentRow >= 0 && currentRow < 8 && currentCol >= 0 && currentCol < 8 && board[currentRow][currentCol] === 0) {
+                if (isKing) {
+                    // For kings, find all empty squares in the direction
+                    let kingCurrentRow = row + dRow;
+                    let kingCurrentCol = col + dCol;
+                    while (kingCurrentRow >= 0 && kingCurrentRow < 8 && kingCurrentCol >= 0 && kingCurrentCol < 8 && board[kingCurrentRow][kingCurrentCol] === 0) {
+                        moves.push({ row: kingCurrentRow, col: kingCurrentCol });
+                        kingCurrentRow += dRow;
+                        kingCurrentCol += dCol;
+                    }
+                } else {
+                     // For regular pieces, only move one step forward
+                     moves.push({ row: currentRow, col: currentCol });
+                }
+            }
+        }
+    }
+    
+    return allCaptures.length > 0 ? allCaptures : moves;
+}
+
+
+/**
+ * Moves a piece on the board and updates the game state with an animation.
+ * @param {number} startRow Start row.
+ * @param {number} startCol Start column.
+ * @param {number} endRow Destination row.
+ * @param {number} endCol Destination column.
+ * @param {Object} captured The captured piece, if any.
+ * @returns {Promise<void>} A promise that resolves when the animation is complete.
+ */
+function movePiece(startRow, startCol, endRow, endCol, captured) {
+    return new Promise(resolve => {
+        isAnimating = true;
+
+        const startSquare = document.querySelector(`.square[data-row="${startRow}"][data-col="${startCol}"]`);
+        const pieceEl = startSquare.querySelector('.piece');
+        const endSquare = document.querySelector(`.square[data-row="${endRow}"][data-col="${endCol}"]`);
+
+        if (!pieceEl || !endSquare) {
+            isAnimating = false;
+            resolve();
+            return;
+        }
+        
+        // Apply transform to the piece for animation
+        pieceEl.style.transition = `transform ${MOVE_ANIMATION_DURATION}ms ease-in-out`;
+        const startRect = startSquare.getBoundingClientRect();
+        const endRect = endSquare.getBoundingClientRect();
+        const deltaX = endRect.left - startRect.left;
+        const deltaY = endRect.top - startRect.top;
+        pieceEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        
+        // Animate the captured piece fading away
+        if (captured) {
+            const capturedSquare = document.querySelector(`.square[data-row="${captured.row}"][data-col="${captured.col}"]`);
+            const capturedPieceEl = capturedSquare.querySelector('.piece');
+            if (capturedPieceEl) {
+                capturedPieceEl.style.transition = `transform ${MOVE_ANIMATION_DURATION}ms ease-in-out, opacity ${MOVE_ANIMATION_DURATION}ms ease-in-out`;
+                capturedPieceEl.style.transform = 'scale(0)';
+                capturedPieceEl.style.opacity = '0';
+            }
+        }
+
+        setTimeout(() => {
+            // Reset transform and update the board state
+            pieceEl.style.transform = '';
+            
+            const pieceType = boardState[startRow][startCol];
+            boardState[endRow][endCol] = pieceType;
+            boardState[startRow][startCol] = 0;
+
+            // Remove captured piece from the board state
+            if (captured) {
+                boardState[captured.row][captured.col] = 0;
+            }
+            
+            // Check for more captures (chaining)
+            const nextCaptures = getPossibleMoves(endRow, endCol, boardState).filter(move => move.captured);
+            if (nextCaptures.length > 0 && captured) {
+                // Force continuation of the capture chain
+                selectedPiece = { row: endRow, col: endCol };
+                possibleMoves = nextCaptures;
+                renderBoard();
+                isAnimating = false;
+                showMessage("¡Debes realizar otro salto con la misma ficha!");
+                resolve();
+            } else {
+                // End of turn
+                selectedPiece = null;
+                possibleMoves = [];
+
+                checkPromotion(endRow, endCol);
+                renderBoard();
+                switchTurn();
+                checkForWin();
+                isAnimating = false;
+                resolve();
+            }
+        }, MOVE_ANIMATION_DURATION);
+    });
+}
+
+
+/**
+ * Checks if a piece has reached the end of the board and promotes it to a king.
+ * @param {number} row The piece's row.
+ * @param {number} col The piece's column.
+ */
+function checkPromotion(row, col) {
+    const pieceType = boardState[row][col];
+    if (pieceType === 1 && row === 0) {
+        boardState[row][col] = 3; 
+        updateChat('user', '¡Tu ficha se ha convertido en una Reina!');
+    } else if (pieceType === 2 && row === 7) {
+        boardState[row][col] = 4;
+        updateChat('ai', '¡La ficha de tu oponente se ha convertido en una Reina!');
+    }
+}
+
+/**
+ * Switches the turn to the next player and activates the AI's turn if applicable.
+ */
+function switchTurn() {
+    turn = turn === 'white' ? 'black' : 'white';
+    gameStatusEl.textContent = turn === 'white' ? 'Blancas' : 'Negras';
+    if (turn === 'black' && !isGameOver) {
+        updateChat('ai', 'Estoy pensando en mi movimiento...');
+        setTimeout(async () => {
+            await makeAIMove();
+        }, 1000); // Wait 1 second before AI moves
+    }
+}
+
+/**
+ * Checks for a winner and updates the game state.
+ * **CAMBIO IMPORTANTE AQUÍ: Se llama al modal de victoria**
+ */
+function checkForWin() {
+    const whitePieces = boardState.flat().filter(p => p === 1 || p === 3).length;
+    const blackPieces = boardState.flat().filter(p => p === 2 || p === 4).length;
+    const allWhiteMoves = getAllPossibleMoves(boardState, 'white');
+    const allBlackMoves = getAllPossibleMoves(boardState, 'black');
+
+    if (whitePieces === 0 || allWhiteMoves.length === 0) {
+        isGameOver = true;
+        winModalMessage.textContent = '¡El jugador Negro ha ganado!';
+        winModal.style.display = 'flex';
+        updateChat('ai', '¡Buen juego! ¡He ganado!');
+    } else if (blackPieces === 0 || allBlackMoves.length === 0) {
+        isGameOver = true;
+        winModalMessage.textContent = '¡El jugador Blanco ha ganado!';
+        winModal.style.display = 'flex';
+        updateChat('ai', '¡Felicidades! Has ganado.');
+    }
+}
+
+/**
+ * Adds a message to the chat area.
+ * @param {string} role 'user' or 'ai'.
+ * @param {string} message The message to display.
+ */
+function updateChat(role, message) {
+    if (!chatOutputEl) return;
+    const p = document.createElement('p');
+    p.classList.add(role === 'user' ? 'user' : 'ai');
+    p.textContent = `${role === 'user' ? 'Tú' : 'IA'}: ${message}`;
+    chatOutputEl.appendChild(p);
+    chatOutputEl.scrollTop = chatOutputEl.scrollHeight; // Auto-scroll to the bottom
+}
+
+/**
+ * Retrieves all possible moves for a given player from the current board state.
+ * @param {Array<Array<number>>} board The board state.
+ * @param {string} player 'white' or 'black'.
+ * @returns {Array<Object>} An array of all possible moves.
+ */
+function getAllPossibleMoves(board, player) {
+    const allMoves = [];
+    const playerPieces = player === 'white' ? [1, 3] : [2, 4];
+    for (let i = 0; i < 8; i++) {
+        for (let j = 0; j < 8; j++) {
+            if (playerPieces.includes(board[i][j])) {
+                const pieceMoves = getPossibleMoves(i, j, board);
+                if (pieceMoves.length > 0) {
+                    allMoves.push({
+                        piece: { row: i, col: j },
+                        moves: pieceMoves
+                    });
+                }
+            }
+        }
+    }
+    return allMoves;
+}
+
+/**
+ * AI function to make a move.
+ * It prioritizes captures over regular moves.
+ */
+async function makeAIMove() {
+    const allMoves = getAllPossibleMoves(boardState, 'black');
+    if (allMoves.length === 0) {
+        checkForWin(); // No moves, check if game is over
+        return;
+    }
+
+    // Prioritize captures
+    const captureMoves = allMoves.filter(m => m.moves.some(move => move.captured));
+    let bestMove = null;
+
+    if (captureMoves.length > 0) {
+        // Choose a random capture move
+        const randomPieceWithCapture = captureMoves[Math.floor(Math.random() * captureMoves.length)];
+        const randomCapture = randomPieceWithCapture.moves.filter(m => m.captured)[0];
+        bestMove = {
+            from: randomPieceWithCapture.piece,
+            to: { row: randomCapture.row, col: randomCapture.col },
+            captured: randomCapture.captured
+        };
+    } else {
+        // Choose a random regular move
+        const randomPiece = allMoves[Math.floor(Math.random() * allMoves.length)];
+        const randomMove = randomPiece.moves[Math.floor(Math.random() * randomPiece.moves.length)];
+        bestMove = {
+            from: randomPiece.piece,
+            to: { row: randomMove.row, col: randomMove.col },
+            captured: null
+        };
+    }
+
+    if (bestMove) {
+        await movePiece(bestMove.from.row, bestMove.from.col, bestMove.to.row, bestMove.to.col, bestMove.captured);
+    }
+}
+
+// --- EVENT LISTENERS ---
+boardEl.addEventListener('click', handleBoardClick);
+resetButton.addEventListener('click', () => {
+    createBoard();
+    updateChat('user', 'El juego ha sido reiniciado.');
+});
+startGameButton.addEventListener('click', () => {
+    tutorialOverlay.classList.add('hidden');
+    isGameStarted = true;
+});
+resetCenterButton.addEventListener('click', () => {
+    winModal.style.display = 'none';
+    createBoard();
+    updateChat('user', 'El juego ha sido reiniciado desde el modal de victoria.');
+});
+
+suggestButton.addEventListener('click', async () => {
+    suggestButton.disabled = true;
+    aiSuggestionBox.style.display = 'block';
+    aiSuggestionBox.innerHTML = '<i>La IA está generando una sugerencia...</i>';
+
+    const allMoves = getAllPossibleMoves(boardState, turn);
+    const movesSummary = allMoves.map(pieceMove => {
+        const from = `(${String.fromCharCode(97 + pieceMove.piece.col)}${8 - pieceMove.piece.row})`;
+        const toMoves = pieceMove.moves.map(move => {
+            const to = `(${String.fromCharCode(97 + move.col)}${8 - move.row})`;
+            return `${to}${move.captured ? ' (Captura)' : ''}`;
+        }).join(', ');
+        return `Mover de ${from}: a ${toMoves}`;
+    }).join('; ');
+
+    const prompt = `
+        Estamos jugando a las damas. Es el turno de las ${turn === 'white' ? 'fichas blancas' : 'fichas negras'}.
+        El estado actual del tablero es:
+        ${JSON.stringify(boardState)}
+        Movimientos posibles para el turno actual:
+        ${movesSummary}
+
+        Basado en estos movimientos, dame un consejo o una sugerencia de estrategia en español. Explica por qué es un buen movimiento sin dar la solución directamente. Mantén la respuesta breve y amigable.
+    `;
+    
+    // API call with exponential backoff
+    let retries = 0;
+    const maxRetries = 5;
+    const initialDelay = 1000; // 1 second
+
+    const doFetch = async () => {
+        try {
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            };
+            const apiUrl = `${API_URL}?key=${API_KEY}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                if (response.status === 429 && retries < maxRetries) {
+                    const delay = initialDelay * Math.pow(2, retries);
+                    retries++;
+                    await new Promise(res => setTimeout(res, delay));
+                    return doFetch();
+                } else {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+            }
+            const result = await response.json();
+            const text = result.candidates[0].content.parts[0].text;
+            aiSuggestionBox.innerHTML = `<strong>Sugerencia de la IA:</strong> ${text}`;
+        } catch (error) {
+            console.error("Failed to get AI suggestion:", error);
+            aiSuggestionBox.innerHTML = `<i>No se pudo obtener una sugerencia. Intenta de nuevo.</i>`;
+        } finally {
+            suggestButton.disabled = false;
+        }
+    };
+    doFetch();
+});
+
+chatButton.addEventListener('click', async () => {
+    const userMessage = chatInputEl.value.trim();
+    if (userMessage === '') return;
+    
+    updateChat('user', userMessage);
+    chatInputEl.value = '';
+    chatButton.disabled = true;
+
+    // API call with exponential backoff
+    let retries = 0;
+    const maxRetries = 5;
+    const initialDelay = 1000; // 1 second
+
+    const doFetch = async () => {
+        try {
+            const prompt = `
+                El usuario ha preguntado: "${userMessage}".
+                Responde a la pregunta del usuario de manera breve y útil, como si fueras el compañero IA del juego de damas.
+                Si la pregunta es sobre las reglas, el juego o la estrategia, responde directamente.
+                Si la pregunta no está relacionada con el juego, responde de manera amigable pero mantente enfocado en el contexto del juego.
+                Ejemplo: Si preguntan "Hola", responde "¡Hola! ¿Necesitas ayuda con tu juego de damas?".
+                Si preguntan "¿Cómo muevo una ficha?", responde explicando las reglas de movimiento.
+            `;
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            };
+            const apiUrl = `${API_URL}?key=${API_KEY}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                if (response.status === 429 && retries < maxRetries) {
+                    const delay = initialDelay * Math.pow(2, retries);
+                    retries++;
+                    await new Promise(res => setTimeout(res, delay));
+                    return doFetch();
+                } else {
+                    throw new Error(`API call failed with status: ${response.status}`);
+                }
+            }
+            const result = await response.json();
+            const text = result.candidates[0].content.parts[0].text;
+            updateChat('ai', text);
+        } catch (error) {
+            console.error("Failed to get AI chat response:", error);
+            updateChat('ai', 'Lo siento, no puedo responder en este momento. Intenta de nuevo más tarde.');
+        } finally {
+            chatButton.disabled = false;
+        }
+    };
+    doFetch();
+});
+
+// Initial board creation
+createBoard();
+    </script>
+</body>
+</html>
